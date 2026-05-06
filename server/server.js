@@ -40,57 +40,123 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb' }));
 
-/**
- * Generate complete self-contained HTML for a single card with inline styles
- */
-function generateCardHTML(cardData) {
-  const { name, bio, email, phone, linkedin, imageUrl } = cardData;
-  
-  return `<!DOCTYPE html>
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const getInitials = (name = 'Card') => String(name)
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((word) => word.charAt(0).toUpperCase())
+  .join('') || 'C';
+
+const getSafePdfName = (name = 'Card') => {
+  const safeName = String(name)
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    .replace(/\s+/g, ' ');
+
+  return safeName || 'Card';
+};
+
+const normalizeLink = (value = '') => {
+  if (!value) return '';
+  return value.startsWith('http') ? value : `https://${value}`;
+};
+
+const normalizeImageSrc = (imageUrl = '') => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('data:')) return imageUrl;
+  return imageUrl;
+};
+
+const generateCardMarkup = (cardData, options = {}) => {
+  const name = cardData.name || 'Card';
+  const bio = cardData.bio || '';
+  const email = cardData.email || '';
+  const phone = cardData.phone || '';
+  const linkedin = cardData.linkedin || '';
+  const imageUrl = normalizeImageSrc(cardData.imageUrl || '');
+  const pageBreakStyle = options.pageBreakAfter ? 'page-break-after: always;' : '';
+  const safeName = escapeHtml(name);
+  const safeLinkedinUrl = escapeHtml(normalizeLink(linkedin));
+
+  return `
+    <section style="${pageBreakStyle} width: 100%; min-height: 1040px; box-sizing: border-box; padding: 40px 0; background: #f8fafc;">
+      <article style="width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; color: #0f172a;">
+        <div style="width: 100%; height: 300px; background: #e2e8f0; overflow: hidden;">
+          ${imageUrl
+            ? `<img src="${imageUrl}" alt="${safeName}" style="width: 100%; height: 300px; object-fit: cover; object-position: top center;" />`
+            : `<div style="width: 100%; height: 100%; background: #e2e8f0; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 84px; line-height: 1; font-weight: 700;">${escapeHtml(getInitials(name))}</div>`}
+        </div>
+        <div style="padding: 34px 38px 38px; background: #ffffff;">
+          <h1 style="margin: 0 0 18px; font-size: 30px; line-height: 1.2; font-weight: 700; color: #0f172a;">${safeName}</h1>
+          ${bio ? `<p style="margin: 0 0 22px; font-size: 15px; line-height: 1.65; color: #475569; white-space: pre-wrap;">${escapeHtml(bio)}</p>` : ''}
+          <div style="margin-top: 8px; font-size: 14px; line-height: 1.55; color: #334155;">
+            ${email ? `<div style="margin-bottom: 10px; word-break: break-word;"><strong style="color: #64748b;">Email:</strong> <a href="mailto:${escapeHtml(email)}" style="color: #2563eb; text-decoration: none;">${escapeHtml(email)}</a></div>` : ''}
+            ${phone ? `<div style="margin-bottom: 10px; word-break: break-word;"><strong style="color: #64748b;">Phone:</strong> ${escapeHtml(phone)}</div>` : ''}
+            ${linkedin ? `<div style="word-break: break-word;"><strong style="color: #64748b;">LinkedIn:</strong> <a href="${safeLinkedinUrl}" style="color: #2563eb; text-decoration: none;">${escapeHtml(linkedin)}</a></div>` : ''}
+          </div>
+        </div>
+      </article>
+    </section>`;
+};
+
+const generateSingleCardHTML = (cardData) => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${name} - Profile Card</title>
+  <title>${escapeHtml(cardData.name || 'Card')} - Profile Card</title>
 </head>
-<body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-  <div style="max-width: 600px; background: white; margin: 0 auto; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-    <!-- Profile Image -->
-    <div style="width: 100%; height: 280px; background: #e2e8f0; overflow: hidden;">
-      ${imageUrl ? `<img src="${imageUrl}" alt="${name}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />` : `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, #cbd5e1, #94a3b8); display: flex; align-items: center; justify-content: center; font-size: 80px; font-weight: bold; color: #475569;">${name.split(' ').map(w => w.charAt(0).toUpperCase()).slice(0, 2).join('')}</div>`}
-    </div>
-    
-    <!-- Content Area -->
-    <div style="padding: 32px; background: white;">
-      <!-- Name -->
-      <div style="font-size: 24px; font-weight: bold; color: #0f172a; margin-bottom: 16px; line-height: 1.3;">
-        ${name}
-      </div>
-      
-      <!-- Bio -->
-      ${bio ? `<div style="font-size: 14px; color: #64748b; margin-bottom: 16px; line-height: 1.5;">
-        ${bio}
-      </div>` : ''}
-      
-      <!-- Email -->
-      ${email ? `<div style="font-size: 14px; color: #334155; margin-bottom: 12px;">
-        <strong style="color: #64748b;">Email:</strong> <a href="mailto:${email}" style="color: #2563eb; text-decoration: none;">${email}</a>
-      </div>` : ''}
-      
-      <!-- Phone -->
-      ${phone ? `<div style="font-size: 14px; color: #334155; margin-bottom: 12px;">
-        <strong style="color: #64748b;">Phone:</strong> ${phone}
-      </div>` : ''}
-      
-      <!-- LinkedIn -->
-      ${linkedin ? `<div style="font-size: 14px; color: #334155;">
-        <strong style="color: #64748b;">LinkedIn:</strong> <a href="${linkedin.startsWith('http') ? linkedin : 'https://' + linkedin}" style="color: #2563eb; text-decoration: none;">${linkedin}</a>
-      </div>` : ''}
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; background: #f8fafc; font-family: Arial, Helvetica, sans-serif;">
+  ${generateCardMarkup(cardData)}
 </body>
 </html>`;
-}
+
+const generateAllCardsHTML = (cards) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardify - All Cards</title>
+</head>
+<body style="margin: 0; padding: 0; background: #f8fafc; font-family: Arial, Helvetica, sans-serif;">
+  ${cards.map((card, index) => generateCardMarkup(card, { pageBreakAfter: index < cards.length - 1 })).join('')}
+</body>
+</html>`;
+
+const generatePdfBuffer = async (htmlContent) => {
+  let browser;
+
+  try {
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 800, height: 1100 });
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+    });
+
+    return Buffer.from(pdf);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+};
 
 /**
  * POST /api/export-card - Export a single card as PDF
@@ -109,23 +175,9 @@ app.post('/api/export-card', async (req, res) => {
     return res.status(400).json({ error: 'Missing required field: name' });
   }
 
-  let browser;
   try {
     console.log(`[Cardify Server] Starting export for card: ${name}`);
-    
-    // Launch headless browser
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage();
-    
-    // Set viewport
-    await page.setViewport({ width: 800, height: 1100 });
-
-    // Generate HTML
-    const htmlContent = generateCardHTML({
+    const htmlContent = generateSingleCardHTML({
       name,
       bio: bio || '',
       email: email || '',
@@ -134,44 +186,18 @@ app.post('/api/export-card', async (req, res) => {
       imageUrl: imageUrl || '',
     });
 
-    console.log(`[Cardify Server] Loading HTML for: ${name}`);
-    
-    // Set content and wait for rendering
-    await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
-    
-    // Wait for Puppeteer to finish rendering
-    console.log(`[Cardify Server] Waiting for render to complete...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const pdfBuffer = await generatePdfBuffer(htmlContent);
 
-    // Generate PDF
-    console.log(`[Cardify Server] Generating PDF for: ${name}`);
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20px',
-        bottom: '20px',
-        left: '20px',
-        right: '20px'
-      }
-    });
-
-    // Set response headers
     res.set('Content-Type', 'application/pdf');
-    res.set('Content-Disposition', `attachment; filename="${name}.pdf"`);
+    res.set('Content-Disposition', `attachment; filename="${getSafePdfName(name)}.pdf"`);
+    res.set('Content-Length', pdfBuffer.length);
 
-    // Send PDF
     res.send(pdfBuffer);
     console.log(`[Cardify Server] PDF generated successfully for ${name}: ${pdfBuffer.length} bytes`);
 
   } catch (error) {
     console.error('[Cardify Server] Error exporting card:', error.message);
     res.status(500).json({ error: `Failed to export card: ${error.message}` });
-  } finally {
-    if (browser) {
-      await browser.close();
-      console.log(`[Cardify Server] Browser closed for: ${name}`);
-    }
   }
 });
 
@@ -187,87 +213,29 @@ app.post('/api/export-all', async (req, res) => {
     return res.status(400).json({ error: 'Missing or empty cards array' });
   }
 
-  let browser;
   try {
     console.log(`[Cardify Server] Starting export for ${cards.length} cards`);
-    
-    // Launch headless browser
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const normalizedCards = cards.map((card) => ({
+      name: card.name || 'Card',
+      bio: card.bio || '',
+      email: card.email || '',
+      phone: card.phone || '',
+      linkedin: card.linkedin || '',
+      imageUrl: card.imageUrl || '',
+    }));
+    const htmlContent = generateAllCardsHTML(normalizedCards);
+    const pdfBuffer = await generatePdfBuffer(htmlContent);
 
-    const page = await browser.newPage();
-    
-    // Set viewport
-    await page.setViewport({ width: 800, height: 1100 });
-
-    // Build combined HTML with page breaks
-    let combinedHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cardify - All Cards</title>
-  <style>
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .page-break { page-break-after: always; }
-  </style>
-</head>
-<body>`;
-
-    // Add each card with page break
-    cards.forEach((cardData, index) => {
-      const { name, bio, email, phone, linkedin, imageUrl } = cardData;
-      const cardHtml = generateCardHTML({ name, bio: bio || '', email: email || '', phone: phone || '', linkedin: linkedin || '', imageUrl: imageUrl || '' });
-      
-      // Extract just the body content
-      const bodyMatch = cardHtml.match(/<body[^>]*>([\s\S]*)<\/body>/);
-      const bodyContent = bodyMatch ? bodyMatch[1] : '';
-      
-      combinedHtml += `<div class="page-break">${bodyContent}</div>`;
-    });
-
-    combinedHtml += `</body></html>`;
-
-    console.log(`[Cardify Server] Loading HTML with ${cards.length} cards for multi-page export`);
-    
-    // Set content
-    await page.setContent(combinedHtml, { waitUntil: 'domcontentloaded' });
-    
-    // Wait for rendering
-    console.log(`[Cardify Server] Waiting for render to complete...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Generate multi-page PDF
-    console.log(`[Cardify Server] Generating multi-page PDF...`);
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20px',
-        bottom: '20px',
-        left: '20px',
-        right: '20px'
-      }
-    });
-
-    // Set response headers
     res.set('Content-Type', 'application/pdf');
     res.set('Content-Disposition', 'attachment; filename="Cardify-All-Cards.pdf"');
+    res.set('Content-Length', pdfBuffer.length);
 
-    // Send PDF
     res.send(pdfBuffer);
     console.log(`[Cardify Server] Multi-page PDF generated successfully: ${cards.length} cards, ${pdfBuffer.length} bytes`);
 
   } catch (error) {
     console.error('[Cardify Server] Error exporting all cards:', error.message);
     res.status(500).json({ error: `Failed to export cards: ${error.message}` });
-  } finally {
-    if (browser) {
-      await browser.close();
-      console.log(`[Cardify Server] Browser closed for multi-page export`);
-    }
   }
 });
 
