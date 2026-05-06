@@ -5,34 +5,18 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3001;
+const CLIENT_PORTS = [5173, 5174, 5175, 5176, 5177, 5178, 5179, 5180, 5181, 5182];
+const ALLOWED_ORIGINS = CLIENT_PORTS.flatMap((port) => [
+  `http://localhost:${port}`,
+  `http://127.0.0.1:${port}`,
+]);
 
 // In-memory storage for shared cards
 const sharedCards = {};
 
 // Allow local Vite dev server origins.
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5174',
-    'http://localhost:5175',
-    'http://127.0.0.1:5175',
-    'http://localhost:5176',
-    'http://127.0.0.1:5176',
-    'http://localhost:5177',
-    'http://127.0.0.1:5177',
-    'http://localhost:5178',
-    'http://127.0.0.1:5178',
-    'http://localhost:5179',
-    'http://127.0.0.1:5179',
-    'http://localhost:5180',
-    'http://127.0.0.1:5180',
-    'http://localhost:5181',
-    'http://127.0.0.1:5181',
-    'http://localhost:5182',
-    'http://127.0.0.1:5182',
-  ],
+  origin: ALLOWED_ORIGINS,
   credentials: true,
 }));
 
@@ -299,7 +283,7 @@ app.get('/api/image', async (req, res) => {
  * Body:
  *   - cards: Array of card objects with name, bio, email, phone, linkedin, imageUrl
  * Returns:
- *   - shareUrl: The URL to share (http://localhost:5173/share/{id})
+ *   - shareUrl: The URL to share ({clientOrigin}/share/{id})
  *   - shareId: The unique share ID
  */
 app.post('/api/share', (req, res) => {
@@ -318,10 +302,13 @@ app.post('/api/share', (req, res) => {
     
     console.log(`[Cardify Server] Created share link for ${cards.length} cards with ID: ${shareId}`);
     
-    // Return share URL
+    const clientOrigin = ALLOWED_ORIGINS.includes(req.get('origin'))
+      ? req.get('origin')
+      : 'http://localhost:5173';
+
     res.json({
       shareId,
-      shareUrl: `http://localhost:5173/share/${shareId}`,
+      shareUrl: `${clientOrigin}/share/${shareId}`,
     });
   } catch (error) {
     console.error('[Cardify Server] Error creating share link:', error.message);

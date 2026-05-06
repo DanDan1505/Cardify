@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { Download, AlertCircle, X } from 'lucide-react'
+import { apiUrl } from '../config/api'
 
 const getInitials = (name = '') => {
   return name
@@ -75,7 +76,7 @@ const SharedCards = () => {
         setLoading(true)
         setError(null)
         
-        const response = await fetch(`http://localhost:3001/api/share/${id}`)
+        const response = await fetch(apiUrl(`/api/share/${id}`))
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -116,7 +117,7 @@ const SharedCards = () => {
   const handleExportCard = async (card) => {
     setExporting(card.name)
     try {
-      const response = await fetch('http://localhost:3001/api/export-card', {
+      const response = await fetch(apiUrl('/api/export-card'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +159,7 @@ const SharedCards = () => {
   const handleExportAll = async () => {
     setExportingAll(true)
     try {
-      const response = await fetch('http://localhost:3001/api/export-all', {
+      const response = await fetch(apiUrl('/api/export-all'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

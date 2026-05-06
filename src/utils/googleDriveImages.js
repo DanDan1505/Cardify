@@ -34,20 +34,6 @@ export function extractGoogleDriveFileId(url) {
 }
 
 /**
- * Convert a Google Drive file URL or ID to a thumbnail URL
- * Returns null if the input is not a valid Google Drive URL/ID
- */
-export function convertToGoogleDriveThumbnailUrl(urlOrId) {
-  const fileId = extractGoogleDriveFileId(urlOrId)
-  
-  if (!fileId) {
-    return null
-  }
-
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w200`
-}
-
-/**
  * Generate initials from a name string
  * e.g., "Sarah Anderson" -> "SA"
  */
