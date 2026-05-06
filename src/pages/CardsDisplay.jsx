@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Download, FileText, Phone, Link, X, Share2, Copy, Check, LogOut } from 'lucide-react'
 import { fetchSheetData, getSpreadsheetData } from '../utils/googleSheetsAPI'
 import { getInitials, extractGoogleDriveFileId } from '../utils/googleDriveImages'
+import { apiUrl } from '../config/api'
 
 const DUMMY_DATA = [
   {
@@ -276,11 +277,11 @@ const ImageWithFallback = ({ imageUrl, personName, className = 'w-full h-full ob
     setLoading(true)
 
     // Build the backend proxy URL
-    const backendUrl = `http://localhost:3001/api/image?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(accessToken)}`
+    const backendUrl = apiUrl(`/api/image?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(accessToken)}`)
     console.log('[Cardify] ImageWithFallback: Fetching image from backend URL:', backendUrl)
     
     // Test if backend is reachable first
-    fetch('http://localhost:3001/')
+    fetch(apiUrl('/'))
       .then(res => {
         console.log('[Cardify] ImageWithFallback: Backend test successful - status:', res.status)
         
@@ -401,7 +402,7 @@ const DynamicCard = ({ data, template, columnMapping, onExport, accessToken, row
       })
 
       // POST to backend API with proper headers
-      const response = await fetch('http://localhost:3001/api/export-card', {
+      const response = await fetch(apiUrl('/api/export-card'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -713,7 +714,7 @@ export default function CardsDisplay({ template, columnMapping, selectedSheet, a
             // Extract Google Drive file ID from URL
             const fileId = extractGoogleDriveFileId(fields.image)
             if (fileId && accessToken) {
-              const backendUrl = `http://localhost:3001/api/image?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(accessToken)}`
+              const backendUrl = apiUrl(`/api/image?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(accessToken)}`)
               const response = await fetch(backendUrl)
               if (response.ok) {
                 const blob = await response.blob()
@@ -743,7 +744,7 @@ export default function CardsDisplay({ template, columnMapping, selectedSheet, a
       console.log('[Cardify] Exporting', cardsToExport.length, 'cards to backend')
 
       // POST to backend API
-      const response = await fetch('http://localhost:3001/api/export-all', {
+      const response = await fetch(apiUrl('/api/export-all'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -792,7 +793,7 @@ export default function CardsDisplay({ template, columnMapping, selectedSheet, a
             // Extract Google Drive file ID from URL
             const fileId = extractGoogleDriveFileId(fields.image)
             if (fileId && accessToken) {
-              const backendUrl = `http://localhost:3001/api/image?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(accessToken)}`
+              const backendUrl = apiUrl(`/api/image?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(accessToken)}`)
               const response = await fetch(backendUrl)
               if (response.ok) {
                 const blob = await response.blob()
@@ -822,7 +823,7 @@ export default function CardsDisplay({ template, columnMapping, selectedSheet, a
       console.log('[Cardify] Creating share link for', cardsToShare.length, 'cards')
 
       // POST to backend API
-      const response = await fetch('http://localhost:3001/api/share', {
+      const response = await fetch(apiUrl('/api/share'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
