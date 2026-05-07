@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Landing from './pages/Landing'
 import TemplateSelection from './pages/TemplateSelection'
@@ -79,7 +79,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route
           path="/"
@@ -130,7 +130,7 @@ function App() {
           element={<SharedCards />}
         />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 

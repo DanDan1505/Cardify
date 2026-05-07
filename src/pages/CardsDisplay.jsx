@@ -836,7 +836,7 @@ export default function CardsDisplay({ template, columnMapping, selectedSheet, a
       }
 
       const data = await response.json()
-      const shareUrl = window.location.origin + '/share/' + data.shareId
+      const shareUrl = window.location.origin + '/#/share/' + data.shareId
       setShareUrl(shareUrl)
       setShowShareModal(true)
 
