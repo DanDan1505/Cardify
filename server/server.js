@@ -7,30 +7,16 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3001;
-<<<<<<< Updated upstream
-const CLIENT_PORTS = [5173, 5174, 5175, 5176, 5177, 5178, 5179, 5180, 5181, 5182];
-const ALLOWED_ORIGINS = CLIENT_PORTS.flatMap((port) => [
-  `http://localhost:${port}`,
-  `http://127.0.0.1:${port}`,
-]);
-
-// In-memory storage for shared cards
-const sharedCards = {};
-=======
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'https://cardify-2t03safv1-dandan1505s-projects.vercel.app',
 ];
 const SHARES_FILE = path.join(__dirname, 'shares.json');
->>>>>>> Stashed changes
 
 // Allow local Vite dev server origins.
 app.use(cors({
   origin: ALLOWED_ORIGINS,
-<<<<<<< Updated upstream
   credentials: true,
-=======
->>>>>>> Stashed changes
 }));
 
 // Middleware to parse JSON and increase limit for base64 images
