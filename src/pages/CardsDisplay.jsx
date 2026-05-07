@@ -836,10 +836,11 @@ export default function CardsDisplay({ template, columnMapping, selectedSheet, a
       }
 
       const data = await response.json()
-      setShareUrl(data.shareUrl)
+      const shareUrl = window.location.origin + '/share/' + data.shareId
+      setShareUrl(shareUrl)
       setShowShareModal(true)
 
-      console.log('[Cardify] Share link created:', data.shareUrl)
+      console.log('[Cardify] Share link created:', shareUrl)
     } catch (error) {
       console.error('[Cardify] Share failed:', error)
       alert('Failed to create share link. Please try again.')
