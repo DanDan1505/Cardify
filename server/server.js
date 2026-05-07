@@ -13,7 +13,6 @@ const ALLOWED_ORIGINS = [
 ];
 const SHARES_FILE = path.join(__dirname, 'shares.json');
 
-// Allow local Vite dev server origins.
 app.use(cors({
   origin: ALLOWED_ORIGINS,
   credentials: true,
