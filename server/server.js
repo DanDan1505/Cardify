@@ -1,18 +1,21 @@
 const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3001;
-// In-memory storage for shared cards
-const sharedCards = {};
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'https://cardify-2t03safv1-dandan1505s-projects.vercel.app',
+];
+const SHARES_FILE = path.join(__dirname, 'shares.json');
 
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://cardify-2t03safv1-dandan1505s-projects.vercel.app'
-  ]
+  origin: ALLOWED_ORIGINS,
+  credentials: true,
 }));
 
 // Middleware to parse JSON and increase limit for base64 images
@@ -53,6 +56,30 @@ const normalizeImageSrc = (imageUrl = '') => {
   if (imageUrl.startsWith('data:')) return imageUrl;
   return imageUrl;
 };
+
+const readShares = () => {
+  if (!fs.existsSync(SHARES_FILE)) {
+    return {};
+  }
+
+  const fileContent = fs.readFileSync(SHARES_FILE, 'utf8');
+  return fileContent.trim() ? JSON.parse(fileContent) : {};
+};
+
+const writeShares = (shares) => {
+  fs.writeFileSync(SHARES_FILE, JSON.stringify(shares, null, 2));
+};
+
+const summarizeCardsForLog = (cards) => cards.map((card, index) => ({
+  index,
+  name: card.name || '',
+  email: card.email || '',
+  phone: card.phone || '',
+  linkedin: card.linkedin || '',
+  bioLength: String(card.bio || '').length,
+  imageUrlLength: String(card.imageUrl || '').length,
+  hasImage: Boolean(card.imageUrl),
+}));
 
 const generateCardMarkup = (cardData, options = {}) => {
   const name = cardData.name || 'Card';
@@ -284,29 +311,48 @@ app.get('/api/image', async (req, res) => {
 app.post('/api/share', (req, res) => {
   const { cards } = req.body;
 
+  console.log('[Cardify Server] POST /api/share called', {
+    origin: req.get('origin') || '',
+    bodyKeys: Object.keys(req.body || {}),
+    cardsCount: Array.isArray(cards) ? cards.length : 0,
+    cards: Array.isArray(cards) ? summarizeCardsForLog(cards) : [],
+  });
+
   if (!Array.isArray(cards) || cards.length === 0) {
+    console.error('[Cardify Server] POST /api/share rejected: missing or empty cards array', {
+      bodyType: typeof req.body,
+      cardsType: typeof cards,
+    });
     return res.status(400).json({ error: 'Missing or empty cards array' });
   }
 
   try {
-    // Generate unique ID
     const shareId = uuidv4();
-    
-    // Store cards in memory
-    sharedCards[shareId] = cards;
-    
+    const shares = readShares();
+
+    shares[shareId] = {
+      cards,
+      createdAt: new Date().toISOString(),
+    };
+
+    writeShares(shares);
+
     console.log(`[Cardify Server] Created share link for ${cards.length} cards with ID: ${shareId}`);
-    
-    const clientOrigin = ALLOWED_ORIGINS.includes(req.get('origin'))
-      ? req.get('origin')
-      : 'http://localhost:5173';
+
+    const requestOrigin = req.get('origin');
+    const clientOrigin = ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0];
 
     res.json({
       shareId,
       shareUrl: `${clientOrigin}/share/${shareId}`,
     });
   } catch (error) {
-    console.error('[Cardify Server] Error creating share link:', error.message);
+    console.error('[Cardify Server] Error creating share link:', {
+      message: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: `Failed to create share link: ${error.message}` });
   }
 });
@@ -320,20 +366,49 @@ app.post('/api/share', (req, res) => {
  */
 app.get('/api/share/:id', (req, res) => {
   const { id } = req.params;
-  
+
+  console.log('[Cardify Server] GET /api/share/:id called', {
+    origin: req.get('origin') || '',
+    id,
+  });
+
   if (!id) {
+    console.error('[Cardify Server] GET /api/share/:id rejected: missing share ID');
     return res.status(400).json({ error: 'Missing share ID' });
   }
-  
-  const cards = sharedCards[id];
-  
-  if (!cards) {
-    return res.status(404).json({ error: 'Share link not found or has expired' });
+
+  try {
+    const shares = readShares();
+    const share = shares[id];
+
+    if (!share) {
+      console.error(`[Cardify Server] Share link not found for ID: ${id}`);
+      return res.status(404).json({ error: 'Share link not found or has expired' });
+    }
+
+    const cards = Array.isArray(share) ? share : share.cards;
+
+    if (!Array.isArray(cards)) {
+      console.error(`[Cardify Server] Share data is invalid for ID: ${id}`, {
+        shareType: typeof share,
+        shareKeys: share && typeof share === 'object' ? Object.keys(share) : [],
+      });
+      return res.status(500).json({ error: 'Share data is invalid' });
+    }
+
+    console.log(`[Cardify Server] Retrieved shared cards for ID: ${id} (${cards.length} cards)`, {
+      cards: summarizeCardsForLog(cards),
+    });
+
+    res.json({ cards });
+  } catch (error) {
+    console.error('[Cardify Server] Error retrieving share link:', {
+      id,
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: `Failed to retrieve share link: ${error.message}` });
   }
-  
-  console.log(`[Cardify Server] Retrieved shared cards for ID: ${id} (${cards.length} cards)`);
-  
-  res.json({ cards });
 });
 
 /**
